@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="config"      default="true"/>
+  <arg name="rviz_config" default="$(find baxter_launchfiles)/config/manip_suite.rviz" />
+
+  <!-- By default we do not overwrite the URDF. Change the following to true to change the default behavior -->
+  <arg name="load_robot_description" default="false"/>
+  <!-- Left and right electric gripper params. Set to true to check for collisions for their links -->
+  <arg name="right_electric_gripper" default="true"/>
+  <arg name="left_electric_gripper"  default="true"/>
+  <!-- Set the kinematic tips for the left_arm and right_arm move_groups -->
+  <arg name="left_tip_name"  default="left_gripper"/>
+  <arg name="right_tip_name" default="right_gripper"/>
+  <include file="$(find baxter_moveit_config)/launch/planning_context.launch">
+    <arg name="load_robot_description" value="$(arg load_robot_description)"/>
+    <arg name="left_electric_gripper"  value="$(arg left_electric_gripper)"/>
+    <arg name="right_electric_gripper" value="$(arg right_electric_gripper)"/>
+    <arg name="left_tip_name"          value="$(arg left_tip_name)"/>
+    <arg name="right_tip_name"         value="$(arg right_tip_name)"/>
+  </include>
+
+  <arg name="kinect" default="false" />
+  <arg name="xtion"  default="false" />
+  <arg name="camera_link_pose" default="0.15 0.075 0.5 0.0 0.7854 0.0"/>
+  <include file="$(find baxter_moveit_config)/launch/move_group.launch">
+    <arg name="kinect" value="$(arg kinect)" />
+    <arg name="xtion"  value="$(arg xtion)" />
+    <arg name="camera_link_pose" default="$(arg camera_link_pose)"/>
+    <arg name="allow_trajectory_execution" value="true"/>
+  </include>
+
+  <include file="$(find baxter_moveit_config)/launch/moveit_rviz.launch">
+    <arg name="config"      value="$(arg config)" />
+    <arg name="rviz_config" value="$(arg rviz_config)" />
+  </include>
+
+  <include file="$(find baxter_moveit_config)/launch/default_warehouse_db.launch" />
+
+  <!-- Launch baxter trajectory action server -->
+  <node pkg="baxter_interface" type="joint_trajectory_action_server.py" name="baxter_joint_trajectory_action_server"/>
+
+  <!-- Camera to robot transform -->
+  <node pkg="tf" type="static_transform_publisher" name="camera_to_tobot_tf" args="1.71911 -0.188092 0.0377949 1.30652992003 -1.53713803711 -1.54648645786 base kinect2_link 10"/>
+
+  <!-- Launch Kinect2 -->
+  <arg name="kinect_tf"  default="true"/>
+  <arg name="kinect_fr"  default="2"/>
+  <include file="$(find kinect2_bridge)/launch/kinect2_bridge.launch">
+    <arg name="publish_tf" value="$(arg kinect_tf)"/>
+    <arg name="fps_limit"  value="$(arg kinect_fr)"/>
+  </include>
+
+  <!-- Nodelet for depth proc -->
+  <group ns="camera">
+    <node pkg="nodelet" type="nodelet" name="standalone_nodelet"  args="manager"/>
+    <node pkg="nodelet" type="nodelet" name="depth_image_proc"    args="load depth_image_proc/point_cloud_xyzrgb standalone_nodelet" output="screen">
+      <remap from="/camera/depth_registered/image_rect" to="/kinect2/qhd/image_depth_rect"/>
+      <remap from="/camera/rgb/camera_info"             to="/kinect2/qhd/camera_info"/>
+      <remap from="/camera/rgb/image_rect_color"        to="/kinect2/qhd/image_color_rect"/>
+    </node>
+  </group>
+
+
+</launch>

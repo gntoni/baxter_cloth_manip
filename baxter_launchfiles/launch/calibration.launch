@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- Launch Kinect2 -->
+  <arg name="kinect_tf"  default="true"/>
+  <arg name="kinect_fr"  default="-1"/>
+  <include file="$(find kinect2_bridge)/launch/kinect2_bridge.launch">
+    <arg name="publish_tf" value="$(arg kinect_tf)"/>
+    <arg name="fps_limit"  value="$(arg kinect_fr)"/>
+  </include>
+
+  <!-- Nodelet for depth proc -->
+  <group ns="camera">
+    <node pkg="nodelet" type="nodelet" name="standalone_nodelet"  args="manager"/>
+    <node pkg="nodelet" type="nodelet" name="depth_image_proc"    args="load depth_image_proc/point_cloud_xyzrgb standalone_nodelet" output="screen">
+      <remap from="/camera/depth_registered/image_rect" to="/kinect2/qhd/image_depth_rect"/>
+      <remap from="/camera/rgb/camera_info"             to="/kinect2/qhd/camera_info"/>
+      <remap from="/camera/rgb/image_rect_color"        to="/kinect2/qhd/image_color_rect"/>
+    </node>
+  </group>
+
+  <!-- Launch AR pose -->
+  <node pkg="rviz" type="rviz" name="rviz" 
+    args="-d $(find baxter_launchfiles)/config/calibration.rviz"/>
+
+  <node name="ar_pose" pkg="ar_pose" type="ar_single" respawn="false"
+    output="screen">
+    <param name="marker_pattern" type="string"
+      value="$(find ar_pose)/data/4x4/4x4_1.patt"/>
+    <param name="marker_width" type="double" value="135.0"/>
+    <param name="marker_center_x" type="double" value="0.0"/>
+    <param name="marker_center_y" type="double" value="0.0"/>
+    <param name="threshold" type="int" value="100"/>
+    <param name="use_history" type="bool" value="true"/>
+  </node>
+
+  <!-- Launch camera_robot_calibration capture points -->
+  <arg name="base_frame_name"       default="/base"/>
+  <arg name="camera_frame_name"     default="/kinect2_link"/>
+  <arg name="robot_ee_frame_name"   default="/right_gripper_base"/>
+  <arg name="marker_frame_name"     default="/ar_marker"/>
+
+  <!-- Run the node to capture points -->
+  <node name="capture_points" pkg="camera_robot_calibration"
+  type="camera_robot_calibration.py"/>
+    <param name="base_frame_name"      type="str"  value="$(arg base_frame_name)"/>
+    <param name="camera_frame_name"    type="str"  value="$(arg camera_frame_name)"/>
+    <param name="robot_ee_frame_name"  type="str"  value="$(arg robot_ee_frame_name)"/>
+    <param name="marker_frame_name"    type="str"  value="$(arg marker_frame_name)"/>
+
+</launch>
